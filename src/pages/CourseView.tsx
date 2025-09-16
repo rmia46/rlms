@@ -9,104 +9,86 @@ const CourseView = () => {
 
   const course: Course | undefined = data.courses.find(c => c.id === courseId);
 
+  // Toggle material completion
   const handleMaterialCompletion = async (moduleId: string, materialId: string) => {
     if (!course) return;
 
-    const updatedCourses = data.courses.map(c => {
-      if (c.id === course.id) {
-        return {
-          ...c,
-          modules: (c.modules ?? []).map(m => {
-            if (m.id === moduleId) {
-              return {
-                ...m,
-                materials: (m.materials ?? []).map(l =>
-                  l.id === materialId ? { ...l, completed: !l.completed } : l
-                ),
-              };
-            }
-            return m;
-          }),
-        };
-      }
-      return c;
-    });
+    const updatedCourses = data.courses.map(c =>
+      c.id === course.id
+        ? {
+            ...c,
+            modules: (c.modules ?? []).map(m =>
+              m.id === moduleId
+                ? {
+                    ...m,
+                    materials: (m.materials ?? []).map(mat =>
+                      mat.id === materialId ? { ...mat, completed: !mat.completed } : mat
+                    ),
+                  }
+                : m
+            ),
+          }
+        : c
+    );
 
     await updateCourse(updatedCourses);
   };
 
+  // Extract Google Drive file ID
+  const getGoogleDriveFileId = (url: string) => {
+    const regexes = [
+      /\/d\/([a-zA-Z0-9_-]+)/, // /d/FILE_ID/view
+      /id=([a-zA-Z0-9_-]+)/,   // ?id=FILE_ID
+    ];
+    for (const regex of regexes) {
+      const match = url.match(regex);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  // Render material content
   const renderMaterialContent = (material: Material) => {
-    const isYouTube = material.url && (material.url.includes('youtube.com') || material.url.includes('youtu.be'));
-    const isVimeo = material.url && material.url.includes('vimeo.com');
-    const isDirectLink = material.url && /\.(mp4|webm|ogg|mov|flv)$/i.test(material.url);
+    const url = material.url ?? '';
+    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+    const isVimeo = url.includes('vimeo.com');
+    const isVideoFile = /\.(mp4|webm|ogg|mov|flv)$/i.test(url);
 
     switch (material.type) {
       case 'text':
         return <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: material.content || '' }} />;
+
       case 'link':
         return (
-          <a href={material.url ?? ''} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
             Go to Link
           </a>
         );
+
       case 'video':
         if (isYouTube) {
-          const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i;
-          const videoIdMatch = (material.url ?? '').match(youtubeRegex);
-          const embedUrl = videoIdMatch ? `https://www.youtube.com/embed/${videoIdMatch[1]}` : '';
-          return (
-            <iframe
-              className="w-full aspect-video rounded-lg"
-              src={embedUrl}
-              title={material.title}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            ></iframe>
-          );
+          const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
+          const embedUrl = match ? `https://www.youtube.com/embed/${match[1]}` : '';
+          return <iframe className="w-full aspect-video rounded-lg" src={embedUrl} title={material.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>;
         } else if (isVimeo) {
-            const videoIdMatch = (material.url ?? '').match(/(?:vimeo\.com\/(?:video\/)?)(\d+)/i);
-            const embedUrl = videoIdMatch ? `https://player.vimeo.com/video/${videoIdMatch[1]}` : '';
-            return (
-              <iframe
-                className="w-full aspect-video rounded-lg"
-                src={embedUrl}
-                title={material.title}
-                frameBorder="0"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            );
-        } else if (isDirectLink) {
-          return (
-            <video
-              className="w-full aspect-video rounded-lg"
-              src={material.url ?? ''}
-              title={material.title}
-              controls
-            ></video>
-          );
+          const match = url.match(/(?:vimeo\.com\/(?:video\/)?)(\d+)/i);
+          const embedUrl = match ? `https://player.vimeo.com/video/${match[1]}` : '';
+          return <iframe className="w-full aspect-video rounded-lg" src={embedUrl} title={material.title} frameBorder="0" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen></iframe>;
+        } else if (isVideoFile) {
+          return <video className="w-full aspect-video rounded-lg" src={url} controls />;
         } else {
-            return (
-                <iframe
-                    className="w-full aspect-video rounded-lg"
-                    src={material.url ?? ''}
-                    title={material.title}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                ></iframe>
-            );
+          return <iframe className="w-full aspect-video rounded-lg" src={url} title={material.title} frameBorder="0" allowFullScreen></iframe>;
         }
-      case 'pdf':
-        return (
-          <iframe
-            className="w-full aspect-video rounded-lg"
-            src={material.url ?? ''}
-            title={material.title}
-            frameBorder="0"
-          ></iframe>
-        );
+
+      case 'pdf': {
+        const fileId = getGoogleDriveFileId(url);
+        const pdfSrc = fileId
+          ? `https://docs.google.com/viewer?url=https://drive.google.com/uc?id=${fileId}&embedded=true`
+          : url;
+
+        return <iframe className="w-full aspect-video rounded-lg" src={pdfSrc} title={material.title} frameBorder="0" allowFullScreen />;
+      }
+
       default:
         return null;
     }
@@ -134,10 +116,7 @@ const CourseView = () => {
             <div className="divider"></div>
             <div className="space-y-4">
               {(module.materials ?? []).map(material => (
-                <div
-                  key={material.id}
-                  className="flex flex-col p-4 bg-base-100 rounded-lg shadow-sm"
-                >
+                <div key={material.id} className="flex flex-col p-4 bg-base-100 rounded-lg shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center space-x-4">
                       <CheckCircle
