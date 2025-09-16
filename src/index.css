@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: pastel --default;
+}
+.text-gradient {
+  background: linear-gradient(
+    to right,
+    #8000D9, /* rich purple */
+    #B266FF  /* lighter purple */
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
