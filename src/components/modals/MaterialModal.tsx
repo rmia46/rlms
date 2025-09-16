@@ -1,3 +1,4 @@
+import { forwardRef, type Ref } from 'react';
 import { type Material } from '../../types/data';
 
 interface MaterialModalProps {
@@ -13,9 +14,9 @@ interface MaterialModalProps {
   onClose: () => void;
 }
 
-const MaterialModal = ({ title, type, url, content, setTitle, setType, setUrl, setContent, onSave, onClose }: MaterialModalProps) => {
+const MaterialModal = forwardRef(({ title, type, url, content, setTitle, setType, setUrl, setContent, onSave, onClose }: MaterialModalProps, ref: Ref<HTMLDialogElement>) => {
   return (
-    <dialog id="material_modal" className="modal">
+    <dialog ref={ref} className="modal">
       <div className="modal-box">
         <h3 className="font-bold text-lg">Material</h3>
         <form className="py-4">
@@ -52,6 +53,6 @@ const MaterialModal = ({ title, type, url, content, setTitle, setType, setUrl, s
       </div>
     </dialog>
   );
-};
+});
 
 export default MaterialModal;

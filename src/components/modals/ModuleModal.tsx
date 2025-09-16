@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { type ChangeEvent, forwardRef, type Ref } from 'react';
 
 interface ModuleModalProps {
   title: string;
@@ -7,11 +7,11 @@ interface ModuleModalProps {
   onClose: () => void;
 }
 
-const ModuleModal = ({ title, setTitle, onSave, onClose }: ModuleModalProps) => {
+const ModuleModal = forwardRef(({ title, setTitle, onSave, onClose }: ModuleModalProps, ref: Ref<HTMLDialogElement>) => {
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value);
 
   return (
-    <dialog id="module_modal" className="modal">
+    <dialog ref={ref} className="modal">
       <div className="modal-box">
         <h3 className="font-bold text-lg">Module</h3>
         <form className="py-4">
@@ -27,6 +27,6 @@ const ModuleModal = ({ title, setTitle, onSave, onClose }: ModuleModalProps) => 
       </div>
     </dialog>
   );
-};
+});
 
 export default ModuleModal;

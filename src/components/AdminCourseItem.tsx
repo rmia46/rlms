@@ -1,98 +1,42 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useCourseStore } from '../store/useCourseStore';
 import { Edit, Trash2, PlusCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToastStore } from '../store/useToastStore';
 import { type Course, type Module, type Material } from '../types/data';
-import ModuleModal from './modals/ModuleModal';
 import AdminModuleItem from './AdminModuleItem';
 import MaterialModal from './modals/MaterialModal';
 
 interface AdminCourseItemProps {
   course: Course;
+  courseId: string;
   onEdit: (course: Course) => void;
   onDelete: (courseId: string) => void;
+  onOpenModuleModal: (courseId: string, module?: Module) => void;
+  onDeleteModule: (courseId: string, moduleId: string) => void;
 }
 
-const AdminCourseItem = ({ course, onEdit, onDelete }: AdminCourseItemProps) => {
+const AdminCourseItem = ({ course, courseId, onEdit, onDelete, onOpenModuleModal, onDeleteModule }: AdminCourseItemProps) => {
   const { updateCourse } = useCourseStore();
   const { setToast } = useToastStore();
-  const [editingModule, setEditingModule] = useState<Module | null>(null);
-  const [moduleTitle, setModuleTitle] = useState('');
+  const materialModalRef = useRef<HTMLDialogElement>(null);
 
   const [editingMaterial, setEditingMaterial] = useState<{ courseId: string; moduleId: string; material: Material | null } | null>(null);
   const [materialTitle, setMaterialTitle] = useState('');
   const [materialType, setMaterialType] = useState<Material['type']>('text');
   const [materialUrl, setMaterialUrl] = useState('');
   const [materialContent, setMaterialContent] = useState('');
-
-  // --- Module Handlers ---
-  const handleOpenAddModuleModal = useCallback(() => {
-    setEditingModule({ id: 'new-' + uuidv4(), title: '', materials: [] });
-    setModuleTitle('');
-    (document.getElementById('module_modal') as HTMLDialogElement).showModal();
-  }, []);
-
-  const handleSaveModule = useCallback(async () => {
-    if (editingModule) {
-      const isNew = editingModule.id.startsWith('new-');
-      const updatedModules = isNew
-        ? [...(course.modules ?? []), { id: uuidv4(), title: moduleTitle, materials: [] }]
-        : (course.modules ?? []).map(m => m.id === editingModule.id ? { ...m, title: moduleTitle } : m);
-      
-      const updatedCourses = useCourseStore.getState().data.courses.map(c =>
-        c.id === course.id ? { ...c, modules: updatedModules } : c
-      );
-
-      try {
-        await updateCourse(updatedCourses);
-        setToast(`Module ${isNew ? 'created' : 'updated'} successfully!`, 'success');
-        setEditingModule(null);
-        (document.getElementById('module_modal') as HTMLDialogElement).close();
-      } catch (error) {
-        setToast(`Error ${isNew ? 'creating' : 'updating'} module.`, 'error');
-      }
-    }
-  }, [editingModule, moduleTitle, course, updateCourse, setToast]);
-
-  const handleEditModule = useCallback((module: Module) => {
-    setEditingModule(module);
-    setModuleTitle(module.title);
-    (document.getElementById('module_modal') as HTMLDialogElement).showModal();
-  }, []);
-
-  const handleDeleteModule = useCallback(async (moduleId: string) => {
-    if (window.confirm('Are you sure you want to delete this module?')) {
-      const updatedModules = (course.modules ?? []).filter(m => m.id !== moduleId);
-      const updatedCourses = useCourseStore.getState().data.courses.map(c =>
-        c.id === course.id ? { ...c, modules: updatedModules } : c
-      );
-
-      try {
-        await updateCourse(updatedCourses);
-        setToast('Module deleted successfully!', 'success');
-      } catch (error) {
-        setToast('Error deleting module.', 'error');
-      }
-    }
-  }, [course, updateCourse, setToast]);
-
-  const handleCloseModuleModal = useCallback(() => {
-    setEditingModule(null);
-    (document.getElementById('module_modal') as HTMLDialogElement).close();
-  }, []);
-
-  // --- Material Handlers ---
+  
   const handleOpenMaterialModal = useCallback((moduleId: string, material: Material | null = null) => {
     const newMaterial = material || { id: 'new-' + uuidv4(), title: '', type: 'text', completed: false };
-    setEditingMaterial({ courseId: course.id, moduleId, material: newMaterial });
+    setEditingMaterial({ courseId, moduleId, material: newMaterial });
     
     setMaterialTitle(newMaterial.title || '');
     setMaterialType(newMaterial.type || 'text');
     setMaterialUrl(newMaterial.url || '');
     setMaterialContent(newMaterial.content || '');
-    (document.getElementById('material_modal') as HTMLDialogElement).showModal();
-  }, [course.id]);
+    materialModalRef.current?.showModal();
+  }, [courseId]);
 
   const handleSaveMaterial = useCallback(async () => {
     if (editingMaterial) {
@@ -130,7 +74,7 @@ const AdminCourseItem = ({ course, onEdit, onDelete }: AdminCourseItemProps) => 
         await updateCourse(updatedCourses);
         setToast(`Material ${isNew ? 'created' : 'updated'} successfully!`, 'success');
         setEditingMaterial(null);
-        (document.getElementById('material_modal') as HTMLDialogElement).close();
+        materialModalRef.current?.close();
       } catch (error) {
         setToast(`Error ${isNew ? 'creating' : 'updating'} material.`, 'error');
       }
@@ -164,7 +108,7 @@ const AdminCourseItem = ({ course, onEdit, onDelete }: AdminCourseItemProps) => 
 
   const handleCloseMaterialModal = useCallback(() => {
     setEditingMaterial(null);
-    (document.getElementById('material_modal') as HTMLDialogElement).close();
+    materialModalRef.current?.close();
   }, []);
 
   return (
@@ -184,7 +128,7 @@ const AdminCourseItem = ({ course, onEdit, onDelete }: AdminCourseItemProps) => 
       <div className="divider"></div>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold text-gradient">Modules</h3>
-        <button className="btn btn-sm btn-soft" onClick={handleOpenAddModuleModal}>
+        <button className="btn btn-sm btn-soft" onClick={() => onOpenModuleModal(courseId)}>
           <PlusCircle className="w-4 h-4 text-gradient" /> Add Module
         </button>
       </div>
@@ -193,20 +137,15 @@ const AdminCourseItem = ({ course, onEdit, onDelete }: AdminCourseItemProps) => 
           <AdminModuleItem
             key={module.id}
             module={module}
-            onEdit={handleEditModule}
-            onDelete={handleDeleteModule}
+            onEdit={() => onOpenModuleModal(courseId, module)}
+            onDelete={(moduleId) => onDeleteModule(courseId, moduleId)}
             onOpenMaterialModal={handleOpenMaterialModal}
             onDeleteMaterial={(materialId) => handleDeleteMaterial(module.id, materialId)}
           />
         ))}
       </div>
-      <ModuleModal
-        title={moduleTitle}
-        setTitle={setModuleTitle}
-        onSave={handleSaveModule}
-        onClose={handleCloseModuleModal}
-      />
       <MaterialModal
+        ref={materialModalRef}
         title={materialTitle}
         type={materialType}
         url={materialUrl}
