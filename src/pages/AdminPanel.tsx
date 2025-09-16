@@ -4,7 +4,7 @@ import { PlusCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToastStore } from '../store/useToastStore';
 import CourseModal from '../components/modals/CourseModal';
-import { type Course, type Module, type Material } from '../types/data';
+import { type Course, type Module } from '../types/data';
 import AdminCourseItem from '../components/AdminCourseItem';
 import ModuleModal from '../components/modals/ModuleModal';
 
